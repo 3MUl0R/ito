@@ -21,3 +21,4 @@ server/deploy-dev.sh
 .electron-builder-cache
 .npm-cache
 .cache
+server/mc.exe
