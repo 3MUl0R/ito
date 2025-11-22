@@ -35,11 +35,16 @@ export function setFocusedText(
     // Add the text as the final argument with -- separator to prevent flag parsing
     args.push('--', text)
 
+    console.log('[text-writer] Spawning binary at:', binaryPath)
+    const startTime = Date.now()
+
     execFile(binaryPath, args, (err, _stdout, stderr) => {
+      const duration = Date.now() - startTime
       if (err) {
-        console.error('text-writer error:', stderr)
+        console.error(`[text-writer] Error after ${duration}ms:`, stderr, err)
         return resolve(false)
       }
+      console.log(`[text-writer] Completed successfully in ${duration}ms`)
       resolve(true)
     })
   })
