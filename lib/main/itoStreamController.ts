@@ -13,6 +13,11 @@ import { ContextData } from './context/ContextGrabber'
 import log from 'electron-log'
 import { timingCollector, TimingEventName } from './timing/TimingCollector'
 import { interactionManager } from './interactions/InteractionManager'
+import { isLocalMode } from './localModeStore'
+import {
+  transcribeLocal,
+  isLocalTranscriptionAvailable,
+} from '../clients/localTranscriptionService'
 
 /**
  * ItoStreamController manages the lifecycle of a transcription stream using TranscribeStreamV2.
@@ -46,7 +51,9 @@ export class ItoStreamController {
   }
 
   /**
-   * Starts the gRPC stream immediately without waiting for minimum audio duration.
+   * Starts the transcription stream.
+   * In local mode, collects audio and transcribes locally.
+   * In cloud mode, streams to gRPC server.
    * Returns a promise that resolves with the transcription response and audio data.
    */
   public async startGrpcStream(): Promise<{
@@ -55,14 +62,94 @@ export class ItoStreamController {
     sampleRate: number
   }> {
     if (this.hasStartedGrpc) {
-      log.warn('[ItoStreamController] gRPC stream already started')
+      log.warn('[ItoStreamController] Stream already started')
       throw new Error('Stream already started')
     }
 
-    console.log('[ItoStreamController] Starting gRPC stream immediately')
     this.hasStartedGrpc = true
     this.abortController = new AbortController()
     const abortSignal = this.abortController.signal
+
+    // Check if we should use local mode
+    if (isLocalMode() && isLocalTranscriptionAvailable()) {
+      return this.startLocalTranscription(abortSignal)
+    }
+
+    // Cloud mode: use gRPC stream
+    return this.startCloudTranscription(abortSignal)
+  }
+
+  /**
+   * Local mode transcription - collects all audio then transcribes locally.
+   */
+  private async startLocalTranscription(abortSignal: AbortSignal): Promise<{
+    response: any
+    audioBuffer: Buffer
+    sampleRate: number
+  }> {
+    console.log('[ItoStreamController] Starting LOCAL transcription')
+
+    const timingEventName =
+      this.currentMode === ItoMode.EDIT
+        ? TimingEventName.SERVER_EDITING
+        : TimingEventName.SERVER_DICTATION
+
+    // Collect all audio chunks
+    const audioChunks: Uint8Array[] = []
+    for await (const chunk of this.audioStreamManager.streamAudioChunks()) {
+      if (this.isCancelled) {
+        console.log('[ItoStreamController] Local transcription cancelled')
+        break
+      }
+      audioChunks.push(chunk.audioData)
+    }
+
+    // Transcribe locally
+    const response = await timingCollector.timeAsync(
+      timingEventName,
+      async () => {
+        const result = await transcribeLocal({
+          audioChunks,
+          mode: this.currentMode === ItoMode.EDIT ? 'edit' : 'transcribe',
+          signal: abortSignal,
+        })
+
+        // Convert to gRPC-like response format for compatibility
+        if (result.error) {
+          return {
+            transcript: '',
+            error: {
+              code: result.error.code,
+              message: result.error.message,
+              type: 0, // API error type
+              provider: 0, // Groq provider (for now)
+            },
+          }
+        }
+
+        return {
+          transcript: result.transcript,
+        }
+      },
+    )
+
+    return {
+      response,
+      audioBuffer: this.audioStreamManager.getInteractionAudioBuffer(),
+      sampleRate: this.audioStreamManager.getCurrentSampleRate(),
+    }
+  }
+
+  /**
+   * Cloud mode transcription - streams to gRPC server.
+   */
+  private async startCloudTranscription(abortSignal: AbortSignal): Promise<{
+    response: any
+    audioBuffer: Buffer
+    sampleRate: number
+  }> {
+    console.log('[ItoStreamController] Starting CLOUD transcription (gRPC)')
+
     const timingEventName =
       this.currentMode === ItoMode.EDIT
         ? TimingEventName.SERVER_EDITING
@@ -77,7 +164,6 @@ export class ItoStreamController {
         ),
     )
 
-    // Return response along with the audio data collected during the stream
     return {
       response,
       audioBuffer: this.audioStreamManager.getInteractionAudioBuffer(),

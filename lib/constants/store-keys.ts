@@ -12,6 +12,12 @@ export const STORE_KEYS = {
   OPEN_MIC: 'openMic',
   SELECTED_AUDIO_INPUT: 'selectedAudioInput',
   INTERACTION_SOUNDS: 'interactionSounds',
+
+  // Local mode keys
+  APP_MODE: 'appMode', // 'local' | 'cloud'
+  LOCAL_USER_ID: 'localUserId',
+  LOCAL_MODE_SETTINGS: 'localModeSettings',
+  // Note: API keys stored separately with encryption via localModeStore
 } as const
 
 export type StoreKey = (typeof STORE_KEYS)[keyof typeof STORE_KEYS]
