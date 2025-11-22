@@ -6,6 +6,7 @@ import { ITO_MODE_SHORTCUT_DEFAULTS } from '../constants/keyboard-defaults.js'
 import { KeyName, normalizeLegacyKey } from '../types/keyboard.js'
 import { KeyValueStore } from './sqlite/repo'
 import { resolveDefaultKeys } from '../utils/settings.js'
+import { isLocalMode } from './localModeStore'
 
 export interface KeyboardShortcutConfig {
   id: string
@@ -100,7 +101,26 @@ export const createNewAuthState = (): AuthState => {
   return { id, codeVerifier, codeChallenge, state }
 }
 
+/**
+ * Get the local user ID for local mode.
+ * Creates a new one if it doesn't exist.
+ */
+export const getLocalUserId = (): string => {
+  let userId = store.get(STORE_KEYS.LOCAL_USER_ID) as string | undefined
+  if (!userId) {
+    userId = `local-${crypto.randomUUID()}`
+    store.set(STORE_KEYS.LOCAL_USER_ID, userId)
+    console.log('[Store] Created new local user ID:', userId)
+  }
+  return userId
+}
+
 export const getCurrentUserId = (): string | undefined => {
+  // In local mode, use the local user ID
+  if (isLocalMode()) {
+    return getLocalUserId()
+  }
+  // In cloud mode, use the authenticated user profile
   const user = store.get(STORE_KEYS.USER_PROFILE) as any
   return user?.id
 }
