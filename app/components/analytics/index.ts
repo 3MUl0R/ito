@@ -21,8 +21,24 @@ const getSharedDeviceId = async (): Promise<string> => {
   }
 }
 
+// Check if app is in local mode
+const isLocalMode = (): boolean => {
+  try {
+    const appMode = window.electron?.store?.get(STORE_KEYS.APP_MODE)
+    return appMode === 'local'
+  } catch {
+    return false
+  }
+}
+
 // Check if analytics should be enabled
 const getAnalyticsEnabled = (): boolean => {
+  // Disable analytics in local mode - privacy promise
+  if (isLocalMode()) {
+    console.log('[Analytics] Local mode - analytics disabled')
+    return false
+  }
+
   if (!import.meta.env.VITE_POSTHOG_API_KEY) {
     console.warn('[Analytics] No PostHog API key found, analytics disabled')
     return false

@@ -10,8 +10,8 @@ import mainStore from './store'
 import { STORE_KEYS } from '../constants/store-keys'
 import type { AdvancedSettings } from './store'
 import { DEFAULT_ADVANCED_SETTINGS } from '../constants/generated-defaults.js'
-import { main } from 'bun'
 import { mainWindow } from './app'
+import { isLocalMode } from './localModeStore'
 
 const LAST_SYNCED_AT_KEY = 'lastSyncedAt'
 
@@ -47,6 +47,12 @@ export class SyncService {
   }
 
   public async start() {
+    // Skip sync in local mode - all data stays local
+    if (isLocalMode()) {
+      console.log('[SyncService] Local mode - sync disabled')
+      return
+    }
+
     // Clear any existing interval
     if (this.syncInterval) {
       clearInterval(this.syncInterval)
@@ -66,6 +72,11 @@ export class SyncService {
   }
 
   private async runSync() {
+    // Double-check local mode (defensive)
+    if (isLocalMode()) {
+      return
+    }
+
     if (this.isSyncing) {
       return
     }

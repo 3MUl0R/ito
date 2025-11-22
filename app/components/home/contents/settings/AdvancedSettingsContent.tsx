@@ -11,6 +11,7 @@ import {
   memo,
 } from 'react'
 import { useWindowContext } from '@/app/components/window/WindowContext'
+import { useAppMode, useAppModeStore } from '@/app/store/useAppModeStore'
 
 type LlmSettingConfig = {
   name: keyof LlmSettings
@@ -422,6 +423,100 @@ export default function AdvancedSettingsContent() {
               </span>
             </label>
           </div>
+        )}
+
+        {/* Reset Setup - Local Mode Only */}
+        <LocalModeResetSection />
+      </div>
+    </div>
+  )
+}
+
+/**
+ * Reset to Setup Wizard section - only shown in local mode.
+ */
+function LocalModeResetSection() {
+  const { isLocal } = useAppMode()
+  const { resetConfig } = useAppModeStore()
+  const [isResetting, setIsResetting] = useState(false)
+  const [showConfirm, setShowConfirm] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  if (!isLocal) {
+    return null
+  }
+
+  const handleReset = async () => {
+    setIsResetting(true)
+    setError(null)
+
+    try {
+      const result = await resetConfig()
+      if (result.success) {
+        // Relaunch the app to go back to setup wizard
+        window.api.relaunch()
+      } else {
+        setError(result.error || 'Failed to reset configuration')
+        setShowConfirm(false)
+      }
+    } catch (err: any) {
+      setError(err?.message || 'Failed to reset configuration')
+      setShowConfirm(false)
+    } finally {
+      setIsResetting(false)
+    }
+  }
+
+  return (
+    <div>
+      <h3 className="text-md font-medium text-slate-900 mb-3 ml-1">
+        Reset Setup
+      </h3>
+      <div className="ml-1">
+        {!showConfirm ? (
+          <div className="flex items-start gap-3">
+            <div className="flex-1">
+              <span className="block text-sm font-medium text-slate-700">
+                Return to Setup Wizard
+              </span>
+              <span className="block text-xs text-slate-500 mt-1">
+                Clear your local mode configuration and return to the setup
+                wizard. Your transcription data will be preserved.
+              </span>
+            </div>
+            <button
+              onClick={() => setShowConfirm(true)}
+              className="px-3 py-1 text-sm text-red-600 hover:text-red-700 border border-red-300 rounded-md hover:bg-red-50 transition-colors"
+            >
+              Reset
+            </button>
+          </div>
+        ) : (
+          <div className="p-3 border border-red-200 rounded-lg bg-red-50">
+            <p className="text-sm text-red-700 mb-3">
+              This will clear your API keys and local mode settings. The app
+              will restart and you'll need to complete setup again. Continue?
+            </p>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setShowConfirm(false)}
+                disabled={isResetting}
+                className="px-3 py-1 text-sm text-slate-600 hover:text-slate-900 border border-slate-300 rounded-md hover:bg-slate-50 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleReset}
+                disabled={isResetting}
+                className="px-3 py-1 text-sm text-white bg-red-600 hover:bg-red-700 rounded-md transition-colors disabled:opacity-50"
+              >
+                {isResetting ? 'Resetting...' : 'Yes, Reset'}
+              </button>
+            </div>
+          </div>
+        )}
+        {error && (
+          <p className="mt-2 text-xs text-red-600">{error}</p>
         )}
       </div>
     </div>

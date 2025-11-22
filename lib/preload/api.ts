@@ -260,6 +260,9 @@ const api = {
     resetConfig: (): Promise<{ success: boolean; error?: string }> =>
       ipcRenderer.invoke('local-mode:reset-config'),
   },
+
+  // App lifecycle
+  relaunch: () => ipcRenderer.invoke('app:relaunch'),
 }
 
 export default api

@@ -1,5 +1,16 @@
 import * as Sentry from '@sentry/electron/renderer'
 
+// Check if app is in local mode - disable Sentry for privacy
+const isLocalMode = (): boolean => {
+  try {
+    // Access electron store directly (synchronous)
+    const appMode = (window as any).electron?.store?.get('appMode')
+    return appMode === 'local'
+  } catch {
+    return false
+  }
+}
+
 const dsn = import.meta.env.VITE_SENTRY_DSN as string | undefined
 const environment =
   (import.meta.env.VITE_SENTRY_ENV as string | undefined) || 'local'
@@ -14,8 +25,15 @@ const profilesSampleRate = Number.parseFloat(
     '0.2',
 )
 
+// Disable Sentry in local mode for privacy
+const sentryEnabled = Boolean(dsn) && !isLocalMode()
+
+if (isLocalMode()) {
+  console.log('[Sentry] Local mode - error reporting disabled')
+}
+
 Sentry.init({
-  enabled: Boolean(dsn),
+  enabled: sentryEnabled,
   dsn,
   environment,
   tracesSampleRate,

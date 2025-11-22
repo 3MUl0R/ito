@@ -893,6 +893,13 @@ export function registerIPC() {
       return { success: false, error: error?.message || 'Unknown error' }
     }
   })
+
+  // App relaunch (used after reset to go back to setup wizard)
+  handleIPC('app:relaunch', () => {
+    const { app } = require('electron')
+    app.relaunch()
+    app.exit(0)
+  })
 }
 
 // Handlers that are specific to a given window instance
