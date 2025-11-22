@@ -41,6 +41,29 @@ export interface LocalModeSettings {
   }
 }
 
+/**
+ * Sanitized provider config for renderer (no secrets).
+ */
+export interface SanitizedProviderConfig {
+  provider: string
+  endpoint: string
+  model: string
+  authHeader?: string
+  /** Whether an API key is configured (not the actual key) */
+  hasApiKey: boolean
+}
+
+/**
+ * Sanitized settings for renderer (no secrets).
+ */
+export interface SanitizedLocalModeSettings {
+  transcription: SanitizedProviderConfig
+  smartGeneration: {
+    enabled: boolean
+    config: SanitizedProviderConfig
+  }
+}
+
 // ============================================================================
 // Transcription Types
 // ============================================================================

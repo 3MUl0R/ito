@@ -229,6 +229,37 @@ const api = {
     download: () => ipcRenderer.invoke('logs:download'),
     clear: () => ipcRenderer.invoke('logs:clear'),
   },
+
+  // Local mode management
+  localMode: {
+    getAppMode: (): Promise<'local' | 'cloud' | null> =>
+      ipcRenderer.invoke('local-mode:get-app-mode'),
+    setAppMode: (mode: 'local' | 'cloud'): Promise<{ success: boolean }> =>
+      ipcRenderer.invoke('local-mode:set-app-mode', mode),
+    isLocalMode: (): Promise<boolean> =>
+      ipcRenderer.invoke('local-mode:is-local-mode'),
+    isConfigured: (): Promise<boolean> =>
+      ipcRenderer.invoke('local-mode:is-configured'),
+    getSettings: (): Promise<any> =>
+      ipcRenderer.invoke('local-mode:get-settings'),
+    setSettings: (settings: any): Promise<{ success: boolean; error?: string }> =>
+      ipcRenderer.invoke('local-mode:set-settings', settings),
+    /** Validate stored settings (and mark as validated if successful) */
+    validateProvider: (): Promise<{ valid: boolean; error?: string }> =>
+      ipcRenderer.invoke('local-mode:validate-provider'),
+    /** Validate with provided config (doesn't save or mark as validated) */
+    validateWithConfig: (config: {
+      provider: string
+      endpoint: string
+      apiKey: string
+      model: string
+    }): Promise<{ valid: boolean; error?: string }> =>
+      ipcRenderer.invoke('local-mode:validate-with-config', config),
+    isSafeStorageAvailable: (): Promise<boolean> =>
+      ipcRenderer.invoke('local-mode:is-safe-storage-available'),
+    resetConfig: (): Promise<{ success: boolean; error?: string }> =>
+      ipcRenderer.invoke('local-mode:reset-config'),
+  },
 }
 
 export default api

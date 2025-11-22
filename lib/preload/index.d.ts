@@ -1,5 +1,23 @@
 import { ElectronAPI } from '@electron-toolkit/preload'
 import type api from './api'
+
+// Sanitized settings types (no secrets exposed to renderer)
+interface SanitizedProviderConfig {
+  provider: string
+  endpoint: string
+  model: string
+  authHeader?: string
+  hasApiKey: boolean
+}
+
+interface SanitizedLocalModeSettings {
+  transcription: SanitizedProviderConfig
+  smartGeneration: {
+    enabled: boolean
+    config: SanitizedProviderConfig
+  }
+}
+
 type TrialStatus = {
   success: boolean
   trialDays: number
@@ -168,6 +186,27 @@ declare global {
           success: boolean
           error?: string
         }>
+      }
+      localMode: {
+        getAppMode: () => Promise<'local' | 'cloud' | null>
+        setAppMode: (mode: 'local' | 'cloud') => Promise<{ success: boolean }>
+        isLocalMode: () => Promise<boolean>
+        isConfigured: () => Promise<boolean>
+        /** Returns sanitized settings (hasApiKey instead of actual keys) */
+        getSettings: () => Promise<SanitizedLocalModeSettings | null>
+        /** Settings include apiKey for storage, but it's never returned */
+        setSettings: (settings: any) => Promise<{ success: boolean; error?: string }>
+        /** Validate stored settings (and mark as validated if successful) */
+        validateProvider: () => Promise<{ valid: boolean; error?: string }>
+        /** Validate with provided config (doesn't save or mark as validated) */
+        validateWithConfig: (config: {
+          provider: string
+          endpoint: string
+          apiKey: string
+          model: string
+        }) => Promise<{ valid: boolean; error?: string }>
+        isSafeStorageAvailable: () => Promise<boolean>
+        resetConfig: () => Promise<{ success: boolean; error?: string }>
       }
     }
   }

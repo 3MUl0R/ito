@@ -10,7 +10,11 @@ import { safeStorage } from 'electron'
 import { machineIdSync } from 'node-machine-id'
 import { STORE_KEYS } from '../constants/store-keys'
 import { store } from './store'
-import type { ProviderConfig, LocalModeSettings } from '../clients/providers/types'
+import type {
+  ProviderConfig,
+  LocalModeSettings,
+  SanitizedLocalModeSettings,
+} from '../clients/providers/types'
 
 // ============================================================================
 // Types
@@ -262,7 +266,9 @@ export function hasApiKey(providerId: string): boolean {
 // ============================================================================
 
 /**
- * Get local mode settings (provider configurations).
+ * Get local mode settings (provider configurations) - INTERNAL USE ONLY.
+ * Returns full settings including decrypted API keys.
+ * DO NOT expose to renderer process.
  */
 export function getLocalModeSettings(): LocalModeSettings | null {
   const settings = store.get(STORE_KEYS.LOCAL_MODE_SETTINGS) as LocalModeSettings | undefined
@@ -290,8 +296,40 @@ export function getLocalModeSettings(): LocalModeSettings | null {
 }
 
 /**
+ * Get sanitized local mode settings for renderer.
+ * API keys are replaced with boolean hasApiKey flag.
+ */
+export function getLocalModeSettingsForRenderer(): SanitizedLocalModeSettings | null {
+  const settings = store.get(STORE_KEYS.LOCAL_MODE_SETTINGS) as LocalModeSettings | undefined
+  if (!settings) {
+    return null
+  }
+
+  return {
+    transcription: {
+      provider: settings.transcription.provider,
+      endpoint: settings.transcription.endpoint,
+      model: settings.transcription.model,
+      authHeader: settings.transcription.authHeader,
+      hasApiKey: hasApiKey('transcription'),
+    },
+    smartGeneration: {
+      enabled: settings.smartGeneration.enabled,
+      config: {
+        provider: settings.smartGeneration.config.provider,
+        endpoint: settings.smartGeneration.config.endpoint,
+        model: settings.smartGeneration.config.model,
+        authHeader: settings.smartGeneration.config.authHeader,
+        hasApiKey: hasApiKey('llm'),
+      },
+    },
+  }
+}
+
+/**
  * Save local mode settings (provider configurations).
  * API keys are stored separately with encryption.
+ * Note: This clears the validation flag - settings must be re-validated.
  */
 export function setLocalModeSettings(settings: LocalModeSettings): void {
   // Extract and store API keys separately
@@ -318,6 +356,9 @@ export function setLocalModeSettings(settings: LocalModeSettings): void {
   }
 
   store.set(STORE_KEYS.LOCAL_MODE_SETTINGS, settingsWithoutKeys)
+
+  // Clear validation - settings have changed, must re-validate
+  clearValidation()
 }
 
 /**
@@ -344,10 +385,53 @@ export function getLLMConfig(): ProviderConfig | null {
 // ============================================================================
 
 /** Providers that don't require an API key */
-const KEYLESS_PROVIDERS = ['local-whisper']
+const KEYLESS_PROVIDERS: readonly string[] = ['local-whisper']
 
 /**
- * Check if local mode is properly configured.
+ * Check if a provider requires an API key.
+ */
+function isKeylessProvider(provider: string): boolean {
+  return KEYLESS_PROVIDERS.includes(provider)
+}
+
+/**
+ * Mark the current configuration as validated.
+ * Called after successful connection test.
+ */
+export function setValidated(): void {
+  store.set(STORE_KEYS.LOCAL_MODE_VALIDATED, new Date().toISOString())
+  console.log('[localModeStore] Configuration marked as validated')
+}
+
+/**
+ * Clear the validation flag.
+ * Called when settings change.
+ */
+export function clearValidation(): void {
+  store.delete(STORE_KEYS.LOCAL_MODE_VALIDATED)
+}
+
+/**
+ * Check if configuration has been validated.
+ */
+export function isValidated(): boolean {
+  const validatedAt = store.get(STORE_KEYS.LOCAL_MODE_VALIDATED)
+  return !!validatedAt
+}
+
+/**
+ * Get the timestamp of last successful validation.
+ */
+export function getValidatedAt(): string | null {
+  return (store.get(STORE_KEYS.LOCAL_MODE_VALIDATED) as string) ?? null
+}
+
+/**
+ * Check if local mode is properly configured AND validated.
+ * Returns true only if:
+ * 1. App is in local mode
+ * 2. Settings exist with required fields
+ * 3. Configuration has been successfully validated (connection test passed)
  */
 export function isLocalModeConfigured(): boolean {
   if (!isLocalMode()) {
@@ -362,16 +446,29 @@ export function isLocalModeConfigured(): boolean {
   // Must have transcription provider configured
   const { provider, endpoint, apiKey } = settings.transcription
 
+  // Provider is always required
+  if (!provider) {
+    return false
+  }
+
   // Endpoint is always required
   if (!endpoint) {
     return false
   }
 
   // API key required unless using a keyless provider (e.g., local-whisper)
-  const isKeylessProvider = KEYLESS_PROVIDERS.includes(provider)
-  const hasRequiredAuth = isKeylessProvider || !!apiKey
+  if (isKeylessProvider(provider)) {
+    // Keyless providers just need endpoint + validation
+    return isValidated()
+  }
 
-  return hasRequiredAuth
+  // Other providers need an API key + validation
+  if (!apiKey) {
+    return false
+  }
+
+  // Must have passed validation (connection test)
+  return isValidated()
 }
 
 /**
@@ -380,6 +477,7 @@ export function isLocalModeConfigured(): boolean {
 export function resetLocalModeConfig(): void {
   store.delete(STORE_KEYS.APP_MODE)
   store.delete(STORE_KEYS.LOCAL_MODE_SETTINGS)
+  store.delete(STORE_KEYS.LOCAL_MODE_VALIDATED)
   deleteApiKey('transcription')
   deleteApiKey('llm')
   // Note: Don't delete LOCAL_USER_ID to preserve data association

@@ -17,6 +17,7 @@ export const STORE_KEYS = {
   APP_MODE: 'appMode', // 'local' | 'cloud'
   LOCAL_USER_ID: 'localUserId',
   LOCAL_MODE_SETTINGS: 'localModeSettings',
+  LOCAL_MODE_VALIDATED: 'localModeValidated', // Timestamp of last successful validation
   // Note: API keys stored separately with encryption via localModeStore
 } as const
 

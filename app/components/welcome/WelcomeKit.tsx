@@ -13,24 +13,39 @@ import './styles.css'
 import { usePermissionsStore } from '../../store/usePermissionsStore'
 import { useOnboardingStore } from '@/app/store/useOnboardingStore'
 import { useAuthStore } from '@/app/store/useAuthStore'
+import { useAppMode } from '@/app/store/useAppModeStore'
 import IntroducingIntelligentModeContent from './contents/IntroducingIntelligentModeContent'
+
+// Cloud mode onboarding steps (includes auth)
+const cloudOnboardingSteps = [
+  CreateAccountContent,
+  ReferralContent,
+  DataControlContent,
+  PermissionsContent,
+  MicrophoneTestContent,
+  KeyboardTestContext,
+  GoodToGoContent,
+  IntroducingIntelligentModeContent,
+  AnyAppContent,
+  TryItOutContent,
+]
+
+// Local mode onboarding steps (skips auth and referral)
+const localOnboardingSteps = [
+  DataControlContent,
+  PermissionsContent,
+  MicrophoneTestContent,
+  KeyboardTestContext,
+  GoodToGoContent,
+  IntroducingIntelligentModeContent,
+  AnyAppContent,
+  TryItOutContent,
+]
 
 export default function WelcomeKit() {
   const { onboardingStep } = useOnboardingStore()
   const { isAuthenticated, user } = useAuthStore()
-
-  const onboardingStepOrder = [
-    CreateAccountContent,
-    ReferralContent,
-    DataControlContent,
-    PermissionsContent,
-    MicrophoneTestContent,
-    KeyboardTestContext,
-    GoodToGoContent,
-    IntroducingIntelligentModeContent,
-    AnyAppContent,
-    TryItOutContent,
-  ]
+  const { isLocal } = useAppMode()
 
   const { setAccessibilityEnabled, setMicrophoneEnabled } =
     usePermissionsStore()
@@ -49,7 +64,17 @@ export default function WelcomeKit() {
       })
   }, [setAccessibilityEnabled, setMicrophoneEnabled])
 
-  // Show signin/signup based on whether user has previous auth data
+  // For local mode, skip auth entirely
+  if (isLocal) {
+    const CurrentComponent = localOnboardingSteps[onboardingStep]
+    return (
+      <div className="w-full h-full bg-background">
+        {CurrentComponent ? <CurrentComponent /> : null}
+      </div>
+    )
+  }
+
+  // Cloud mode: Show signin/signup based on whether user has previous auth data
   if (!isAuthenticated) {
     if (user) {
       // Returning user who needs to sign back in
@@ -60,7 +85,7 @@ export default function WelcomeKit() {
     }
   }
 
-  const CurrentComponent = onboardingStepOrder[onboardingStep]
+  const CurrentComponent = cloudOnboardingSteps[onboardingStep]
 
   return (
     <div className="w-full h-full bg-background">

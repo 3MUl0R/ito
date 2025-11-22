@@ -7,6 +7,20 @@ import path from 'path'
 import store, { getCurrentUserId } from '../main/store'
 import { STORE_KEYS } from '../constants/store-keys'
 import {
+  getAppMode,
+  setAppMode,
+  isLocalMode,
+  getLocalModeSettingsForRenderer,
+  setLocalModeSettings,
+  isSafeStorageAvailable,
+  isLocalModeConfigured,
+  resetLocalModeConfig,
+  setValidated,
+  type AppMode,
+} from '../main/localModeStore'
+import { validateProviderConfig, validateProviderWithConfig } from '../clients/localTranscriptionService'
+import type { LocalModeSettings } from '../clients/providers/types'
+import {
   checkAccessibilityPermission,
   checkMicrophonePermission,
 } from '../utils/crossPlatform'
@@ -785,6 +799,97 @@ export function registerIPC() {
       return { success: true }
     } catch (error: any) {
       console.error('[IPC] Failed to clear logs:', error)
+      return { success: false, error: error?.message || 'Unknown error' }
+    }
+  })
+
+  // ============================================================================
+  // Local Mode IPC Handlers
+  // ============================================================================
+
+  // Get current app mode
+  handleIPC('local-mode:get-app-mode', () => {
+    return getAppMode()
+  })
+
+  // Set app mode
+  handleIPC('local-mode:set-app-mode', (_e, mode: AppMode) => {
+    setAppMode(mode)
+    console.log(`[IPC] App mode set to: ${mode}`)
+    return { success: true }
+  })
+
+  // Check if running in local mode
+  handleIPC('local-mode:is-local-mode', () => {
+    return isLocalMode()
+  })
+
+  // Check if local mode is fully configured
+  handleIPC('local-mode:is-configured', () => {
+    return isLocalModeConfigured()
+  })
+
+  // Get local mode settings (provider configs) - sanitized, no secrets
+  handleIPC('local-mode:get-settings', () => {
+    return getLocalModeSettingsForRenderer()
+  })
+
+  // Save local mode settings
+  handleIPC('local-mode:set-settings', (_e, settings: LocalModeSettings) => {
+    try {
+      setLocalModeSettings(settings)
+      console.log('[IPC] Local mode settings saved')
+      return { success: true }
+    } catch (error: any) {
+      console.error('[IPC] Failed to save local mode settings:', error)
+      return { success: false, error: error?.message || 'Unknown error' }
+    }
+  })
+
+  // Validate provider configuration (test connection) - uses stored settings
+  handleIPC('local-mode:validate-provider', async () => {
+    try {
+      const result = await validateProviderConfig()
+      if (result.valid) {
+        // Mark as validated so isLocalModeConfigured returns true
+        setValidated()
+      }
+      return result
+    } catch (error: any) {
+      console.error('[IPC] Provider validation error:', error)
+      return { valid: false, error: error?.message || 'Validation failed' }
+    }
+  })
+
+  // Validate provider with provided config (doesn't save first)
+  handleIPC('local-mode:validate-with-config', async (_e, config: {
+    provider: string
+    endpoint: string
+    apiKey: string
+    model: string
+  }) => {
+    try {
+      const result = await validateProviderWithConfig(config)
+      return result
+    } catch (error: any) {
+      console.error('[IPC] Provider validation error:', error)
+      return { valid: false, error: error?.message || 'Validation failed' }
+    }
+  })
+
+  // Check if safeStorage is available
+  handleIPC('local-mode:is-safe-storage-available', () => {
+    return isSafeStorageAvailable()
+  })
+
+  // Reset local mode configuration (for setup wizard reset)
+  handleIPC('local-mode:reset-config', () => {
+    try {
+      resetLocalModeConfig()
+      console.log('[IPC] Local mode config reset')
+      return { success: true }
+    } catch (error: any) {
+      console.error('[IPC] Failed to reset local mode config:', error)
       return { success: false, error: error?.message || 'Unknown error' }
     }
   })

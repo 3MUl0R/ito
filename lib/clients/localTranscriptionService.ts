@@ -233,6 +233,7 @@ export async function transcribeLocal(
 
 /**
  * Validate the provider configuration by testing the connection.
+ * Uses stored settings.
  */
 export async function validateProviderConfig(): Promise<{
   valid: boolean
@@ -240,6 +241,56 @@ export async function validateProviderConfig(): Promise<{
 }> {
   try {
     const provider = getProvider()
+    const isValid = await provider.validateConfig()
+
+    if (!isValid) {
+      return {
+        valid: false,
+        error: 'Provider configuration is invalid. Please check your API key and endpoint.',
+      }
+    }
+
+    return { valid: true }
+  } catch (error: unknown) {
+    if (error instanceof ProviderError) {
+      return {
+        valid: false,
+        error: error.message,
+      }
+    }
+
+    const err = error as Error
+    return {
+      valid: false,
+      error: err.message || 'Failed to validate provider configuration.',
+    }
+  }
+}
+
+/**
+ * Validate provider configuration with provided config (doesn't require saving first).
+ * Used for pre-validation before persisting settings.
+ */
+export async function validateProviderWithConfig(config: {
+  provider: string
+  endpoint: string
+  apiKey: string
+  model: string
+}): Promise<{
+  valid: boolean
+  error?: string
+}> {
+  try {
+    // Create a temporary provider instance with the provided config
+    const tempConfig = {
+      provider: config.provider as any,
+      endpoint: config.endpoint,
+      apiKey: config.apiKey,
+      model: config.model,
+      authHeader: 'bearer' as const,
+    }
+
+    const provider = createTranscriptionProvider(tempConfig)
     const isValid = await provider.validateConfig()
 
     if (!isValid) {
