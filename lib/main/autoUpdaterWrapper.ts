@@ -4,6 +4,7 @@ import { autoUpdater } from 'electron-updater'
 import { mainWindow } from './app'
 import { hardKillAll, teardown } from './teardown'
 import { ITO_ENV } from './env'
+import { isLocalMode } from './localModeStore'
 
 export interface UpdateStatus {
   updateAvailable: boolean
@@ -24,6 +25,13 @@ export function initializeAutoUpdater() {
   updateStatus = {
     updateAvailable: false,
     updateDownloaded: false,
+  }
+
+  // Local mode: No automatic update checks
+  // Users can manually check for updates via GitHub releases
+  if (isLocalMode()) {
+    console.log('[AutoUpdater] Local mode - automatic updates disabled')
+    return
   }
 
   // Allow auto-updater in development mode if VITE_DEV_AUTO_UPDATE is set

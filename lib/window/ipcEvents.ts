@@ -207,6 +207,9 @@ export function registerIPC() {
 
   // Start trial when onboarding completes
   handleIPC('start-trial-after-onboarding', async () => {
+    if (isLocalMode()) {
+      return { success: false, error: 'Trials not available in local mode' }
+    }
     const result = await itoHttpClient.post('/trial/start', undefined, {
       requireAuth: true,
     })
@@ -338,6 +341,9 @@ export function registerIPC() {
   })
   // Auth0 DB signup proxy (avoids CORS issues from custom schemes)
   handleIPC('auth0-db-signup', async (_e, { email, password, name }) => {
+    if (isLocalMode()) {
+      return { success: false, error: 'Auth not available in local mode' }
+    }
     try {
       const url = `https://${Auth0Config.domain}/dbconnections/signup`
       const payload: any = {
@@ -375,6 +381,9 @@ export function registerIPC() {
 
   // Auth0 DB login via Password Realm (Resource Owner Password) grant
   handleIPC('auth0-db-login', async (_e, { email, password }) => {
+    if (isLocalMode()) {
+      return { success: false, error: 'Auth not available in local mode' }
+    }
     try {
       if (!email || !password) {
         return { success: false, error: 'Missing email or password' }
@@ -429,6 +438,9 @@ export function registerIPC() {
 
   // Send verification email via server proxy
   handleIPC('auth0-send-verification', async (_e, { dbUserId }) => {
+    if (isLocalMode()) {
+      return { success: false, error: 'Auth not available in local mode' }
+    }
     if (!dbUserId) return { success: false, error: 'Missing user identifier' }
     return itoHttpClient.post('/auth0/send-verification', {
       dbUserId,
@@ -438,6 +450,9 @@ export function registerIPC() {
 
   // Check if email exists for db signup and whether it's verified (via server proxy)
   handleIPC('auth0-check-email', async (_e, { email }) => {
+    if (isLocalMode()) {
+      return { success: false, error: 'Auth not available in local mode' }
+    }
     if (!email) return { success: false, error: 'Missing email' }
     return itoHttpClient.get(
       `/auth0/users-by-email?email=${encodeURIComponent(email)}`,
@@ -446,33 +461,54 @@ export function registerIPC() {
 
   // Trial routes proxy
   handleIPC('trial:complete', async () => {
+    if (isLocalMode()) {
+      return { success: false, error: 'Trials not available in local mode' }
+    }
     return itoHttpClient.post('/trial/complete')
   })
 
   // Billing routes proxy
   handleIPC('billing:create-checkout-session', async () => {
+    if (isLocalMode()) {
+      return { success: false, error: 'Billing not available in local mode' }
+    }
     return itoHttpClient.post('/billing/checkout')
   })
 
   handleIPC(
     'billing:confirm-session',
     async (_e, { sessionId }: { sessionId: string }) => {
+      if (isLocalMode()) {
+        return { success: false, error: 'Billing not available in local mode' }
+      }
       return itoHttpClient.post('/billing/confirm', { session_id: sessionId })
     },
   )
 
   handleIPC('billing:status', async () => {
+    if (isLocalMode()) {
+      return { success: false, error: 'Billing not available in local mode' }
+    }
     return itoHttpClient.get('/billing/status')
   })
 
   handleIPC('billing:cancel-subscription', async () => {
+    if (isLocalMode()) {
+      return { success: false, error: 'Billing not available in local mode' }
+    }
     return itoHttpClient.post('/billing/cancel')
   })
 
   handleIPC('billing:reactivate-subscription', async () => {
+    if (isLocalMode()) {
+      return { success: false, error: 'Billing not available in local mode' }
+    }
     return itoHttpClient.post('/billing/reactivate')
   })
   handleIPC('open-auth-window', async (_e, { url, redirectUri }) => {
+    if (isLocalMode()) {
+      return { success: false, error: 'Auth not available in local mode' }
+    }
     try {
       if (!url || !redirectUri)
         return { success: false, error: 'Missing url or redirectUri' }
@@ -743,6 +779,9 @@ export function registerIPC() {
 
   // Resolve and clear install link token
   handleIPC('analytics:resolve-install-token', async () => {
+    if (isLocalMode()) {
+      return { success: false, error: 'Analytics not available in local mode' }
+    }
     return itoHttpClient.get('/link/resolve')
   })
 

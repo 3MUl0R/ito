@@ -47,6 +47,7 @@ import { ensureValidTokens } from '../auth/events'
 import { Auth0Config } from '../auth/config'
 import { getActiveWindow } from '../media/active-application'
 import { STORE_KEYS } from '../constants/store-keys.js'
+import { isLocalMode } from '../main/localModeStore'
 
 class GrpcClient {
   private client: ReturnType<typeof createClient<typeof ItoService>>
@@ -94,6 +95,29 @@ class GrpcClient {
 
   setAuthToken(token: string | null) {
     this.authToken = token
+  }
+
+  /**
+   * Guard method that throws an error if called in local mode.
+   * gRPC calls should never be made in local mode.
+   */
+  private assertCloudMode(methodName: string): void {
+    if (isLocalMode()) {
+      throw new Error(
+        `[gRPC Client] ${methodName} called in local mode. This is a bug - local mode should use local services.`
+      )
+    }
+  }
+
+  /**
+   * Check if we're in local mode - for methods that should silently skip.
+   */
+  private shouldSkipInLocalMode(): boolean {
+    if (isLocalMode()) {
+      console.log('[gRPC Client] Skipping gRPC call - local mode active')
+      return true
+    }
+    return false
   }
 
   private getHeaders() {
@@ -274,6 +298,7 @@ class GrpcClient {
   }
 
   async transcribeStream(stream: AsyncIterable<AudioChunk>, mode: ItoMode) {
+    this.assertCloudMode('transcribeStream')
     return this.withRetry(async () => {
       const response = await this.client.transcribeStream(stream, {
         headers: await this.getHeadersWithMetadata(mode),
@@ -286,6 +311,7 @@ class GrpcClient {
     stream: AsyncIterable<TranscribeStreamRequest>,
     signal?: AbortSignal,
   ) {
+    this.assertCloudMode('transcribeStreamV2')
     return this.withRetry(async () => {
       const response = await this.client.transcribeStreamV2(stream, {
         headers: this.getHeaders(),
@@ -300,6 +326,7 @@ class GrpcClient {
   // =================================================================
 
   async createNote(note: Note) {
+    if (this.shouldSkipInLocalMode()) return
     return this.withRetry(async () => {
       const request = create(CreateNoteRequestSchema, {
         id: note.id,
@@ -313,6 +340,7 @@ class GrpcClient {
   }
 
   async updateNote(note: Note) {
+    if (this.shouldSkipInLocalMode()) return
     return this.withRetry(async () => {
       const request = create(UpdateNoteRequestSchema, {
         id: note.id,
@@ -325,6 +353,7 @@ class GrpcClient {
   }
 
   async deleteNote(note: Note) {
+    if (this.shouldSkipInLocalMode()) return
     return this.withRetry(async () => {
       const request = create(DeleteNoteRequestSchema, {
         id: note.id,
@@ -336,6 +365,7 @@ class GrpcClient {
   }
 
   async listNotesSince(since?: string): Promise<NotePb[]> {
+    if (this.shouldSkipInLocalMode()) return []
     return this.withRetry(async () => {
       const request = create(ListNotesRequestSchema, {
         sinceTimestamp: since ?? '',
@@ -348,6 +378,7 @@ class GrpcClient {
   }
 
   async createInteraction(interaction: Interaction) {
+    if (this.shouldSkipInLocalMode()) return
     return this.withRetry(async () => {
       // Convert Buffer to Uint8Array for protobuf
       let uint8AudioData: Uint8Array
@@ -381,6 +412,7 @@ class GrpcClient {
   }
 
   async updateInteraction(interaction: Interaction) {
+    if (this.shouldSkipInLocalMode()) return
     return this.withRetry(async () => {
       const request = create(UpdateInteractionRequestSchema, {
         id: interaction.id,
@@ -393,6 +425,7 @@ class GrpcClient {
   }
 
   async deleteInteraction(interaction: Interaction) {
+    if (this.shouldSkipInLocalMode()) return
     return this.withRetry(async () => {
       const request = create(DeleteInteractionRequestSchema, {
         id: interaction.id,
@@ -404,6 +437,7 @@ class GrpcClient {
   }
 
   async listInteractionsSince(since?: string): Promise<InteractionPb[]> {
+    if (this.shouldSkipInLocalMode()) return []
     return this.withRetry(async () => {
       const request = create(ListInteractionsRequestSchema, {
         sinceTimestamp: since ?? '',
@@ -416,6 +450,7 @@ class GrpcClient {
   }
 
   async createDictionaryItem(item: DictionaryItem) {
+    if (this.shouldSkipInLocalMode()) return
     return this.withRetry(async () => {
       const request = create(CreateDictionaryItemRequestSchema, {
         id: item.id,
@@ -429,6 +464,7 @@ class GrpcClient {
   }
 
   async updateDictionaryItem(item: DictionaryItem) {
+    if (this.shouldSkipInLocalMode()) return
     return this.withRetry(async () => {
       const request = create(UpdateDictionaryItemRequestSchema, {
         id: item.id,
@@ -442,6 +478,7 @@ class GrpcClient {
   }
 
   async deleteDictionaryItem(item: DictionaryItem) {
+    if (this.shouldSkipInLocalMode()) return
     return this.withRetry(async () => {
       const request = create(DeleteDictionaryItemRequestSchema, {
         id: item.id,
@@ -453,6 +490,7 @@ class GrpcClient {
   }
 
   async listDictionaryItemsSince(since?: string): Promise<DictionaryItemPb[]> {
+    if (this.shouldSkipInLocalMode()) return []
     return this.withRetry(async () => {
       const request = create(ListDictionaryItemsRequestSchema, {
         sinceTimestamp: since ?? '',
@@ -465,6 +503,8 @@ class GrpcClient {
   }
 
   async deleteUserData() {
+    // In local mode, there's no server data to delete
+    if (this.shouldSkipInLocalMode()) return
     return this.withRetry(async () => {
       const request = create(DeleteUserDataRequestSchema, {})
       return await this.client.deleteUserData(request, {
@@ -474,6 +514,9 @@ class GrpcClient {
   }
 
   async getAdvancedSettings(): Promise<AdvancedSettingsPb | null> {
+    // Local mode uses local settings only
+    if (this.shouldSkipInLocalMode()) return null
+
     // Check if user is self-hosted and skip server sync
     const userId = getCurrentUserId()
     const isSelfHosted = userId === 'self-hosted'
@@ -495,6 +538,9 @@ class GrpcClient {
   async updateAdvancedSettings(
     settings: AdvancedSettings,
   ): Promise<AdvancedSettingsPb | null> {
+    // Local mode stores settings locally only
+    if (this.shouldSkipInLocalMode()) return null
+
     // Check if user is self-hosted and skip server sync
     const userId = getCurrentUserId()
     const isSelfHosted = userId === 'self-hosted'
@@ -530,6 +576,8 @@ class GrpcClient {
   }
 
   async submitTimingReports(reports: TimingReport[]) {
+    // No timing reports in local mode
+    if (this.shouldSkipInLocalMode()) return
     return this.withRetry(async () => {
       const request = create(SubmitTimingReportsRequestSchema, {
         reports,

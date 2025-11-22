@@ -5,6 +5,7 @@ import { grpcClient } from '../clients/grpcClient'
 import { syncService } from '../main/syncService'
 import { mainWindow } from '../main/app'
 import { jwtDecode } from 'jwt-decode'
+import { isLocalMode } from '../main/localModeStore'
 
 // Define TypeScript interfaces for JWT payloads
 interface JwtPayload {
@@ -36,6 +37,11 @@ export const isTokenExpired = (token: string): boolean => {
 
 // Check and validate stored tokens on startup
 export const validateStoredTokens = async (config?: any) => {
+  // Local mode doesn't use authentication - return false to skip cloud startup
+  if (isLocalMode()) {
+    console.log('[Auth] Local mode - skipping token validation')
+    return false
+  }
   try {
     const storedAuth = store.get(STORE_KEYS.AUTH)
     const storedTokens = storedAuth?.tokens
@@ -223,6 +229,10 @@ export const generateNewAuthState = (): AuthState => {
 
 // Auth token exchange
 export const exchangeAuthCode = async (_e, { authCode, state, config }) => {
+  // Local mode doesn't use authentication
+  if (isLocalMode()) {
+    return { success: false, error: 'Auth not available in local mode' }
+  }
   try {
     const authStore = store.get(STORE_KEYS.AUTH)
     const codeVerifier = authStore.state?.codeVerifier
@@ -332,6 +342,10 @@ export const handleLogout = () => {
 }
 
 export const refreshTokens = async (refreshToken: string, config: any) => {
+  // Local mode doesn't use authentication
+  if (isLocalMode()) {
+    return { success: false, error: 'Auth not available in local mode' }
+  }
   try {
     const tokenParams = new URLSearchParams({
       grant_type: 'refresh_token',
@@ -391,6 +405,11 @@ export const shouldRefreshToken = (expiresAt: number): boolean => {
 
 // Automatically refresh tokens if needed
 export const ensureValidTokens = async (config: any) => {
+  // Local mode doesn't use authentication
+  if (isLocalMode()) {
+    return { success: true, tokens: null } // No-op in local mode
+  }
+
   const storedAuth = store.get(STORE_KEYS.AUTH)
   const tokens = storedAuth?.tokens
 

@@ -4,6 +4,7 @@ import os from 'os'
 import store, { getCurrentUserId } from './store'
 import { STORE_KEYS } from '../constants/store-keys'
 import { interactionManager } from './interactions/InteractionManager'
+import { isLocalMode } from './localModeStore'
 
 const LOG_QUEUE_KEY = 'log_queue:events'
 
@@ -57,6 +58,14 @@ export function initializeLogging() {
 
   const flush = async () => {
     if (isSending || queue.length === 0) return
+
+    // Local mode: Don't send logs to server, just clear the queue
+    if (isLocalMode()) {
+      queue.length = 0
+      persistQueue()
+      return
+    }
+
     isSending = true
     const take = Math.min(50, queue.length)
     const batch = queue.slice(0, take)
