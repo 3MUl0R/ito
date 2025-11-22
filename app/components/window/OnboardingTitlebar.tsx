@@ -3,10 +3,12 @@ import {
   getOnboardingCategoryIndex,
   useOnboardingStore,
 } from '@/app/store/useOnboardingStore'
+import { useAppMode } from '@/app/store/useAppModeStore'
 
 export const OnboardingTitlebar = () => {
   const { onboardingStep, totalOnboardingSteps, onboardingCategory } =
     useOnboardingStore()
+  const { isLocal } = useAppMode()
   const onboardingProgress = Math.ceil(
     ((onboardingStep + 1) / totalOnboardingSteps) * 100,
   )
@@ -14,32 +16,42 @@ export const OnboardingTitlebar = () => {
 
   return (
     <>
-      {/* Onboarding Steps Text */}
+      {/* Local Mode Title or Onboarding Steps */}
       <div className="onboarding-steps-text">
-        {['Sign Up', 'Permissions', 'Set Up', 'Try it'].map(
-          (step, idx, arr) => (
-            <React.Fragment key={step}>
-              <span
-                className={`onboarding-step-label${idx <= onboardingCategoryIndex ? ' active' : ''}`}
-              >
-                {step.toUpperCase()}
-              </span>
-              {idx < arr.length - 1 && (
+        {isLocal ? (
+          <span className="local-mode-title">
+            <span className="local-mode-icon">🔒</span>
+            <span className="local-mode-text">LOCAL MODE</span>
+            <span className="local-mode-tagline">Your voice, your data, your device</span>
+          </span>
+        ) : (
+          ['Sign Up', 'Permissions', 'Set Up', 'Try it'].map(
+            (step, idx, arr) => (
+              <React.Fragment key={step}>
                 <span
-                  className={`onboarding-step-chevron${idx < onboardingCategoryIndex ? ' active' : ''}`}
-                  aria-hidden="true"
+                  className={`onboarding-step-label${idx <= onboardingCategoryIndex ? ' active' : ''}`}
                 >
-                  &#8250;
+                  {step.toUpperCase()}
                 </span>
-              )}
-            </React.Fragment>
-          ),
+                {idx < arr.length - 1 && (
+                  <span
+                    className={`onboarding-step-chevron${idx < onboardingCategoryIndex ? ' active' : ''}`}
+                    aria-hidden="true"
+                  >
+                    &#8250;
+                  </span>
+                )}
+              </React.Fragment>
+            ),
+          )
         )}
       </div>
-      {/* Onboarding Progress Bar */}
-      <div className="onboarding-progress-bar-bg">
-        <div className="onboarding-progress-bar-fg" />
-      </div>
+      {/* Onboarding Progress Bar - hidden in local mode */}
+      {!isLocal && (
+        <div className="onboarding-progress-bar-bg">
+          <div className="onboarding-progress-bar-fg" />
+        </div>
+      )}
       <style>{`
         .onboarding-steps-text {
           position: absolute;
@@ -74,6 +86,27 @@ export const OnboardingTitlebar = () => {
         .onboarding-step-label.active, .onboarding-step-chevron.active {
           color: #222;
           font-weight: 500;
+        }
+        .local-mode-title {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        }
+        .local-mode-icon {
+          font-size: 14px;
+        }
+        .local-mode-text {
+          color: #43679d;
+          font-weight: 600;
+          letter-spacing: 0.5px;
+        }
+        .local-mode-tagline {
+          color: #888;
+          font-weight: 400;
+          font-size: 12px;
+          margin-left: 8px;
+          padding-left: 16px;
+          border-left: 1px solid #ddd;
         }
         .onboarding-progress-bar-bg {
           position: absolute;
