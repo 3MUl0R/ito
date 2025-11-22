@@ -44,6 +44,23 @@ export const MIGRATIONS: Migration[] = [
     down: 'DROP INDEX idx_dictionary_items_word_unique;',
   },
   {
+    id: '20250213_dictionary_word_user_unique',
+    up: `
+      -- Drop old global unique index if it exists
+      DROP INDEX IF EXISTS idx_dictionary_items_word_unique;
+
+      -- Allow same word per user by making the uniqueness user-scoped
+      CREATE UNIQUE INDEX idx_dictionary_items_word_user_unique
+      ON dictionary_items(word, user_id)
+      WHERE deleted_at IS NULL;
+    `,
+    down: `
+      -- Revert to word-only unique index
+      DROP INDEX IF EXISTS idx_dictionary_items_word_user_unique;
+      CREATE UNIQUE INDEX idx_dictionary_items_word_unique ON dictionary_items(word) WHERE deleted_at IS NULL;
+    `,
+  },
+  {
     id: '20251029000000_add_user_metadata_table',
     up: `
       CREATE TABLE user_metadata (

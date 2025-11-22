@@ -592,7 +592,13 @@ export function registerIPC() {
     const user_id = getCurrentUserId()
     return NotesTable.findAll(user_id)
   })
-  handleIPC('notes:add', async (_e, note) => NotesTable.insert(note))
+  handleIPC('notes:add', async (_e, note) => {
+    const user_id = getCurrentUserId()
+    if (!user_id) {
+      throw new Error('No user ID found for note insert')
+    }
+    return NotesTable.insert({ ...note, user_id })
+  })
   handleIPC('notes:update-content', async (_e, { id, content }) =>
     NotesTable.updateContent(id, content),
   )
@@ -604,7 +610,11 @@ export function registerIPC() {
     return DictionaryTable.findAll(user_id)
   })
   handleIPC('dictionary:add', async (_e, item) => {
-    return await DictionaryTable.insert(item)
+    const user_id = getCurrentUserId()
+    if (!user_id) {
+      throw new Error('No user ID found for dictionary insert')
+    }
+    return await DictionaryTable.insert({ ...item, user_id })
   })
   handleIPC('dictionary:update', async (_e, { id, word, pronunciation }) => {
     return await DictionaryTable.update(id, word, pronunciation)

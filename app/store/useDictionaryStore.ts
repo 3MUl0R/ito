@@ -1,5 +1,4 @@
 import { create } from 'zustand'
-import { useAuthStore } from './useAuthStore'
 import type { DictionaryItem } from '../../lib/main/sqlite/models'
 
 export type DictionaryEntry = {
@@ -72,10 +71,7 @@ export const useDictionaryStore = create<DictionaryStore>((set, get) => ({
   },
 
   addEntry: async (content: string) => {
-    const { user } = useAuthStore.getState()
-    if (!user) return
     const result = await window.api.dictionary.add({
-      user_id: user.id,
       word: content.trim(),
       pronunciation: null,
     })
@@ -87,10 +83,7 @@ export const useDictionaryStore = create<DictionaryStore>((set, get) => ({
   },
 
   addReplacement: async (from: string, to: string) => {
-    const { user } = useAuthStore.getState()
-    if (!user) return
     const result = await window.api.dictionary.add({
-      user_id: user.id,
       word: from.trim(),
       pronunciation: to.trim(),
     })

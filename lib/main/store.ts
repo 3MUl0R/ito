@@ -366,6 +366,15 @@ export async function initializeStore() {
     STORE_KEYS.USER_PROFILE,
     STORE_KEYS.ID_TOKEN,
     STORE_KEYS.ACCESS_TOKEN,
+    STORE_KEYS.APP_MODE,
+    STORE_KEYS.LOCAL_USER_ID,
+    STORE_KEYS.LOCAL_MODE_SETTINGS,
+    STORE_KEYS.LOCAL_MODE_VALIDATED,
+    // Local mode API key storage
+    'localMode:apiKey:transcription',
+    'localMode:apiKey:llm',
+    'localMode:keyInfo:transcription',
+    'localMode:keyInfo:llm',
     'appliedMigrations',
   ]
 

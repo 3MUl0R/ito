@@ -1,5 +1,4 @@
 import { create } from 'zustand'
-import { useAuthStore } from './useAuthStore'
 
 export type Note = {
   id: string
@@ -31,15 +30,9 @@ export const useNotesStore = create<NotesStore>((set, get) => ({
   },
 
   addNote: async (content: string) => {
-    const { user } = useAuthStore.getState()
-    if (!user) {
-      console.error('Cannot add a note without a logged-in user.')
-      return
-    }
     try {
       const newNote = await window.api.notes.add({
         content: content.trim(),
-        user_id: user.id,
       })
       set(state => ({ notes: [newNote, ...state.notes] }))
     } catch (error) {
